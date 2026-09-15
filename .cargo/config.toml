@@ -1,0 +1,7 @@
+[build]
+target-dir = "Temp/build/rust"
+
+[env]
+TEMP = { value = "Temp/tooling", relative = true, force = true }
+TMP = { value = "Temp/tooling", relative = true, force = true }
+TMPDIR = { value = "Temp/tooling", relative = true, force = true }

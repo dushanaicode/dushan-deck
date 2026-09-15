@@ -1,0 +1,8 @@
+.docs/
+Temp/
+node_modules/
+src-tauri/gen/
+.env
+.env.*
+*.sqlite3
+*.sqlite3-*
