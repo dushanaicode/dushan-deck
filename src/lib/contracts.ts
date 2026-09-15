@@ -1,9 +1,20 @@
-export type Provider = "claude" | "openai";
+export type Provider =
+  | "claude"
+  | "openai"
+  | "grok"
+  | "zai"
+  | "zhipu"
+  | "kimi"
+  | "deepseek"
+  | "antigravity"
+  | "cursor"
+  | "cursor_agent";
+export type ImportFormat = "api_key" | "claude_code" | "codex" | "quota_json";
 export interface ProviderInfo {
   id: Provider;
   name: string;
   description: string;
-  importFormats: string[];
+  importFormats: ImportFormat[];
   quotaAvailable: boolean;
   refreshAvailable: boolean;
   clientWriteAvailable: boolean;
@@ -66,7 +77,7 @@ export interface Snapshot {
 export interface ImportRequest {
   provider: Provider;
   label: string;
-  format: "api_key" | "claude_code" | "codex";
+  format: ImportFormat;
   content: string;
 }
 export interface ImportResult {

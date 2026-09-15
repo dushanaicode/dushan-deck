@@ -7,6 +7,14 @@ use crate::error::{DeckError, Result};
 pub enum Provider {
     Claude,
     Openai,
+    Grok,
+    Zai,
+    Zhipu,
+    Kimi,
+    Deepseek,
+    Antigravity,
+    Cursor,
+    CursorAgent,
 }
 
 impl Provider {
@@ -14,6 +22,43 @@ impl Provider {
         match self {
             Self::Claude => "claude",
             Self::Openai => "openai",
+            Self::Grok => "grok",
+            Self::Zai => "zai",
+            Self::Zhipu => "zhipu",
+            Self::Kimi => "kimi",
+            Self::Deepseek => "deepseek",
+            Self::Antigravity => "antigravity",
+            Self::Cursor => "cursor",
+            Self::CursorAgent => "cursor_agent",
+        }
+    }
+}
+
+impl Provider {
+    pub const ALL: [Self; 10] = [
+        Self::Claude,
+        Self::Openai,
+        Self::Grok,
+        Self::Zai,
+        Self::Zhipu,
+        Self::Kimi,
+        Self::Deepseek,
+        Self::Antigravity,
+        Self::Cursor,
+        Self::CursorAgent,
+    ];
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Claude => "Claude",
+            Self::Openai => "OpenAI",
+            Self::Grok => "xAI",
+            Self::Zai => "Z.ai",
+            Self::Zhipu => "Zhipu",
+            Self::Kimi => "Kimi Code",
+            Self::Deepseek => "DeepSeek",
+            Self::Antigravity => "Antigravity",
+            Self::Cursor => "Cursor",
+            Self::CursorAgent => "Cursor Agent",
         }
     }
 }
@@ -31,26 +76,41 @@ pub struct ProviderInfo {
 }
 
 pub fn providers() -> Vec<ProviderInfo> {
-    vec![
-        ProviderInfo {
-            id: Provider::Claude,
-            name: "Claude",
-            description: "Anthropic · Claude Code",
-            import_formats: &["api_key", "claude_code"],
-            quota_available: false,
-            refresh_available: false,
+    Provider::ALL
+        .into_iter()
+        .map(|id| ProviderInfo {
+            id,
+            name: id.title(),
+            description: match id {
+                Provider::Claude => "Anthropic · Claude Code",
+                Provider::Openai => "OpenAI · Codex",
+                Provider::Grok => "xAI · Grok CLI",
+                Provider::Zai => "Z.ai Coding Plan",
+                Provider::Zhipu => "智谱 Coding Plan",
+                Provider::Kimi => "Kimi Code",
+                Provider::Deepseek => "DeepSeek API",
+                Provider::Antigravity => "Google · Antigravity",
+                Provider::Cursor => "Cursor IDE",
+                Provider::CursorAgent => "Cursor Agent CLI",
+            },
+            import_formats: match id {
+                Provider::Claude => &["api_key", "claude_code", "quota_json"],
+                Provider::Openai => &["api_key", "codex", "quota_json"],
+                Provider::Grok | Provider::Cursor | Provider::Antigravity => &["quota_json"],
+                _ => &["api_key", "quota_json"],
+            },
+            quota_available: true,
+            refresh_available: matches!(
+                id,
+                Provider::Claude
+                    | Provider::Openai
+                    | Provider::Grok
+                    | Provider::Cursor
+                    | Provider::Antigravity
+            ),
             client_write_available: false,
-        },
-        ProviderInfo {
-            id: Provider::Openai,
-            name: "OpenAI",
-            description: "OpenAI · Codex",
-            import_formats: &["api_key", "codex"],
-            quota_available: false,
-            refresh_available: false,
-            client_write_available: false,
-        },
-    ]
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

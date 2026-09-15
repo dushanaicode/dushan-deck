@@ -39,7 +39,7 @@ export function ProviderPage({
       </div>
       <div className="section-tabs">
         <span className="active">模型与账号</span>
-        <span>额度 · 待接入</span>
+        <span>额度 · 悬浮窗</span>
         <span>本机接入 · 待接入</span>
       </div>
       <section className="panel">
@@ -86,7 +86,7 @@ export function ProviderPage({
                             `${credential.kind === "oauth" ? "OAuth" : "API Key"} · v${credential.version}`,
                         )
                         .join(" / ")}
-                      <span className="separator">/</span>额度尚未查询
+                      <span className="separator">/</span>额度在悬浮窗更新
                     </p>
                     <code className="record-id">{account.id}</code>
                   </div>
@@ -133,7 +133,7 @@ export function ProviderPage({
         )}
       </section>
       <p className="footnote">
-        额度查询、OAuth 续期与客户端写入尚未接通，当前保存操作不会调用模型服务。
+        额度、套餐与用量在悬浮窗中实时更新。客户端写入功能尚未接通。
       </p>
     </>
   );

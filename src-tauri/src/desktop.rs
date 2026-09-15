@@ -31,12 +31,32 @@ pub fn show(app: &tauri::AppHandle, label: &str) -> Result<(), ErrorDto> {
     window.show().map_err(window_error)?;
     window.unminimize().map_err(window_error)?;
     window.set_focus().map_err(window_error)?;
+    if label == "float" {
+        // Tauri reapplies its native window flags on show; restore the layered opacity afterwards.
+        let alpha = app.state::<AppState>().float_alpha.load(Ordering::Acquire);
+        let rounded = app
+            .state::<AppState>()
+            .float_rounded
+            .load(Ordering::Acquire);
+        let target = window.clone();
+        let app = app.clone();
+        window
+            .run_on_main_thread(move || {
+                if let Err(error) = crate::floating::set_alpha(&target, alpha)
+                    .and_then(|_| crate::floating::set_rounded(&target, rounded))
+                {
+                    report(&app, error);
+                }
+            })
+            .map_err(window_error)?;
+    }
     Ok(())
 }
 pub fn exit(app: &tauri::AppHandle) {
     if app.state::<AppState>().exiting.swap(true, Ordering::AcqRel) {
         return;
     }
+    app.state::<AppState>().refresh_stop.send_replace(true);
     if let Err(error) = app.emit("deck:exiting", ()) {
         report(app, window_error(error));
     }
@@ -80,24 +100,36 @@ pub fn setup(
     root: &Path,
     show_float: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let float_state = tauri::async_runtime::block_on(app.state::<AppState>().core.float_state())?;
     for (label, title, width, height, visible) in [
         ("main", "Dushan Deck", 1240., 820., true),
-        ("float", "Dushan Deck · 悬浮窗", 360., 430., show_float),
+        (
+            "float",
+            "Dushan Deck · Quota",
+            f64::from(float_state.width),
+            f64::from(float_state.height),
+            show_float,
+        ),
     ] {
         let builder = tauri::WebviewWindowBuilder::new(
             app,
             label,
             tauri::WebviewUrl::App(if label == "float" {
-                "index.html?surface=float".into()
+                "float.html".into()
             } else {
                 "index.html".into()
             }),
         )
         .title(title)
         .inner_size(width, height)
-        .min_inner_size(if label == "main" { 680. } else { 320. }, 380.)
+        .min_inner_size(
+            if label == "main" { 680. } else { 220. },
+            if label == "main" { 380. } else { 260. },
+        )
+        .decorations(label == "main")
+        .shadow(label == "main")
         .visible(visible)
-        .always_on_top(label == "float")
+        .always_on_top(label == "float" && float_state.preferences.on_top)
         .skip_taskbar(label == "float")
         .data_directory(root.join("webview"))
         .general_autofill_enabled(false)
@@ -121,7 +153,20 @@ pub fn setup(
             Err(std::env::VarError::NotPresent) => builder,
             Err(error) => return Err(error.into()),
         };
-        builder.build()?;
+        let builder = if label == "float" {
+            builder.position(60., 60.)
+        } else {
+            builder
+        };
+        #[cfg(target_os = "macos")]
+        let builder = builder.transparent(label == "float");
+        let window = builder.build()?;
+        if label == "float" {
+            crate::floating::set_alpha(&window, float_state.preferences.alpha)
+                .map_err(|error| error.message)?;
+            crate::floating::set_rounded(&window, float_state.preferences.rounded)
+                .map_err(|error| error.message)?;
+        }
     }
     let main = MenuItem::with_id(app, "main", "打开 Dushan Deck", true, None::<&str>)?;
     let float = MenuItem::with_id(app, "float", "显示悬浮窗", true, None::<&str>)?;

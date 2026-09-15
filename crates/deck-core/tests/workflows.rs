@@ -49,6 +49,7 @@ fn oauth(provider: Provider, name: &str) -> ImportAccount {
         Provider::Openai => {
             serde_json::json!({"tokens": {"access_token": format!("synthetic-access-{name}"), "refresh_token": format!("synthetic-refresh-{name}"), "id_token": format!("synthetic-id-{name}"), "account_id": format!("account-{name}")}, "retained": "unknown-field"})
         }
+        _ => panic!("this helper covers the two native OAuth file formats"),
     };
     ImportAccount {
         provider,

@@ -8,7 +8,7 @@ use deck_core::{
 };
 use tauri::{Emitter, Manager, State};
 
-fn main_only(window: &tauri::WebviewWindow) -> Result<(), ErrorDto> {
+pub(crate) fn main_only(window: &tauri::WebviewWindow) -> Result<(), ErrorDto> {
     if window.label() != "main" {
         return Err(ErrorDto {
             code: "permission_denied",
@@ -38,6 +38,7 @@ pub async fn unlock_vault(
     main_only(&window)?;
     state.core.unlock(password).await?;
     changed(&app);
+    crate::usage::refresh_in_background(&app);
     Ok(())
 }
 #[tauri::command]
@@ -61,6 +62,7 @@ pub async fn import_account(
     main_only(&window)?;
     let result = state.core.import(request).await?;
     changed(&app);
+    crate::usage::refresh_in_background(&app);
     Ok(result)
 }
 #[tauri::command]

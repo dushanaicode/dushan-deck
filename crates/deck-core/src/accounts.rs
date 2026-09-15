@@ -23,6 +23,7 @@ pub enum ImportFormat {
     ApiKey,
     ClaudeCode,
     Codex,
+    QuotaJson,
 }
 
 pub(crate) struct ParsedCredential {
@@ -41,6 +42,49 @@ impl ImportAccount {
             return Err(DeckError::Invalid("凭据内容为空或超过 256 KiB"));
         }
         let (payload, anchor, kind, source, expires_at) = match self.format {
+            ImportFormat::QuotaJson => {
+                let mut document: Value = serde_json::from_str(&input)
+                    .map_err(|_| DeckError::Invalid("请输入单个 Quota 账号的完整 JSON"))?;
+                if let Some(records) = document.as_array_mut() {
+                    if records.len() != 1 {
+                        return Err(DeckError::Invalid("请导入单个 Quota 账号记录"));
+                    }
+                    document = records.remove(0);
+                }
+                if document.get("provider").and_then(Value::as_str) != Some(self.provider.as_str())
+                {
+                    return Err(DeckError::Invalid(
+                        "Quota JSON 的 provider 与所选专区不一致",
+                    ));
+                }
+                if document.get("secret").is_none() {
+                    document =
+                        serde_json::json!({"provider": self.provider.as_str(), "secret": document});
+                }
+                let secret = document
+                    .get("secret")
+                    .and_then(Value::as_object)
+                    .ok_or(DeckError::Invalid("Quota JSON 需要完整 secret 对象"))?;
+                let api_key = secret
+                    .get("api_key")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty());
+                let access = secret
+                    .get("access")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty());
+                let anchor = api_key
+                    .or(access)
+                    .ok_or(DeckError::Invalid("secret 缺少 api_key 或 access"))?
+                    .to_owned();
+                let kind = if api_key.is_some() {
+                    "api_key"
+                } else {
+                    "oauth"
+                };
+                let expires = secret.get("expiry").and_then(Value::as_i64);
+                (document, anchor, kind, "quota_json", expires)
+            }
             ImportFormat::ApiKey => {
                 let key = input.trim();
                 if key.len() < 8 || key.chars().any(char::is_whitespace) {

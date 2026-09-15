@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Icon } from "./components/Icon";
 import {
   VaultForm,
@@ -31,8 +30,6 @@ export default function App() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const floating =
-    new URLSearchParams(window.location.search).get("surface") === "float";
   async function action(work: () => Promise<unknown>) {
     setBusy(true);
     setError(null);
@@ -53,65 +50,6 @@ export default function App() {
   function openImport() {
     setDialog(snapshot!.vaultUnlocked ? "import" : "vault");
   }
-  if (floating)
-    return (
-      <main className="float-shell">
-        <header>
-          <div className="brand compact">
-            <span className="brand-icon">D</span>
-            <strong>Dushan Deck</strong>
-          </div>
-          <button
-            className="icon-button"
-            aria-label="隐藏悬浮窗"
-            onClick={() => void action(() => getCurrentWindow().close())}
-          >
-            <Icon name="close" size={17} />
-          </button>
-        </header>
-        <span className="eyebrow">YOUR DECK, AT A GLANCE</span>
-        <h1>随时，就位。</h1>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        {snapshot && (
-          <>
-            <div className="float-metric">
-              <span>本地账号</span>
-              <strong>{snapshot.accounts.length}</strong>
-            </div>
-            {snapshot.providers
-              .filter((provider) =>
-                snapshot.settings.favoriteProviders.includes(provider.id),
-              )
-              .map((provider) => (
-                <div key={provider.id} className="float-row">
-                  <span className={`provider-dot ${provider.id}`} />
-                  <strong>{provider.name}</strong>
-                  <span>
-                    {
-                      snapshot.accounts.filter(
-                        (account) => account.provider === provider.id,
-                      ).length
-                    }{" "}
-                    个账号
-                  </span>
-                </div>
-              ))}
-            <p className="muted">
-              凭据库{snapshot.vaultUnlocked ? "已解锁" : "已锁定"} ·
-              额度尚未接入
-            </p>
-          </>
-        )}
-        <button className="primary" onClick={() => void action(api.showMain)}>
-          打开工作台
-          <Icon name="arrow" size={17} />
-        </button>
-      </main>
-    );
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -197,9 +135,8 @@ export default function App() {
                 ? "工作台"
                 : page === "settings"
                   ? "设置"
-                  : page === "claude"
-                    ? "Claude"
-                    : "OpenAI"}
+                  : snapshot?.providers.find((provider) => provider.id === page)
+                      ?.name}
             </strong>
           </div>
           <div className="topbar-actions">
@@ -312,7 +249,13 @@ export default function App() {
                   <article className="task-item" key={task.id}>
                     <span className={`task-dot ${task.state}`} />
                     <div>
-                      <strong>本地数据库检查</strong>
+                      <strong>
+                        {task.kind === "storage_check"
+                          ? "本地数据库检查"
+                          : task.kind.startsWith("credential_refresh")
+                            ? "账号凭据续期"
+                            : "额度与用量刷新"}
+                      </strong>
                       <p>{task.message}</p>
                       <small>
                         {taskLabels[task.state]} ·{" "}
@@ -352,16 +295,18 @@ export default function App() {
         />
       )}
       {snapshot &&
-        (page === "claude" || page === "openai") &&
+        page !== "workspace" &&
+        page !== "settings" &&
         dialog === "import" && (
           <ImportForm
-            provider={page}
+            info={snapshot.providers.find((provider) => provider.id === page)!}
             onClose={() => setDialog(null)}
             onDone={done}
           />
         )}
       {snapshot &&
-        (page === "claude" || page === "openai") &&
+        page !== "workspace" &&
+        page !== "settings" &&
         dialog === "connection" && (
           <ConnectionForm
             provider={page}

@@ -66,6 +66,27 @@ impl Runtime {
         .await
         .map_err(|_| DeckError::ShutdownTimeout)
     }
+    pub(crate) async fn execute_async<T: Send + 'static>(
+        &self,
+        work: impl std::future::Future<Output = Result<T>> + Send + 'static,
+    ) -> Result<T> {
+        let worker = self
+            .workers
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| DeckError::ShuttingDown)?;
+        let guard = self.gate.clone().read_owned().await;
+        if self.closing.load(Ordering::Acquire) {
+            return Err(DeckError::ShuttingDown);
+        }
+        tokio::spawn(async move {
+            let (_worker, _guard) = (worker, guard);
+            work.await
+        })
+        .await
+        .map_err(|_| DeckError::Worker)?
+    }
 }
 
 #[cfg(test)]

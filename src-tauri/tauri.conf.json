@@ -12,8 +12,8 @@
   "app": {
     "windows": [],
     "security": {
-      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost ws://127.0.0.1:1420 http://127.0.0.1:1420; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'",
+      "devCsp": "default-src \u0027self\u0027; script-src \u0027self\u0027 \u0027unsafe-inline\u0027; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; connect-src ipc: http://ipc.localhost ws://127.0.0.1:1420 http://127.0.0.1:1420; img-src \u0027self\u0027 data:; object-src \u0027none\u0027; frame-src \u0027none\u0027; base-uri \u0027none\u0027; form-action \u0027none\u0027",
+      "csp": "default-src \u0027self\u0027; script-src \u0027self\u0027; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; connect-src ipc: http://ipc.localhost; img-src \u0027self\u0027 data:; object-src \u0027none\u0027; frame-src \u0027none\u0027; base-uri \u0027none\u0027; form-action \u0027none\u0027",
       "capabilities": [
         {
           "identifier": "desktop",
@@ -23,6 +23,14 @@
             "core:event:allow-unlisten",
             "core:window:allow-close",
             "core:window:allow-is-visible"
+          ]
+        },
+        {
+          "identifier": "float-window-controls",
+          "windows": ["float"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-start-resize-dragging"
           ]
         }
       ]

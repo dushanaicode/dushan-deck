@@ -1048,66 +1048,6 @@ form textarea {
   font-size: 12px;
   color: #849476;
 }
-.float-shell {
-  padding: 20px;
-  min-height: 100vh;
-  background: #f4f6ee;
-}
-.float-shell header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 28px;
-}
-.brand.compact {
-  padding: 0;
-}
-.compact strong {
-  font-size: 13px;
-}
-.compact .brand-icon {
-  width: 26px;
-  height: 26px;
-  font-size: 19px;
-  border-radius: 6px;
-}
-.float-shell h1 {
-  font-size: 24px;
-  margin-bottom: 23px;
-}
-.float-metric {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  background: #e7eedf;
-  border-radius: 7px;
-  margin-bottom: 14px;
-  color: #637a51;
-  font-size: 11px;
-}
-.float-metric strong {
-  font-size: 27px;
-}
-.float-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 3px;
-  font-size: 11px;
-  border-bottom: 1px solid #e0e7d7;
-}
-.float-row span:last-child {
-  margin-left: auto;
-  color: #96a387;
-}
-.float-shell > .muted {
-  margin: 18px 0;
-  font-size: 9px;
-}
-.float-shell > .primary {
-  width: 100%;
-}
 @media (min-width: 1400px) {
   .welcome {
     min-height: 294px;

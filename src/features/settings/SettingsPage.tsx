@@ -1,5 +1,6 @@
 import type { Settings, Snapshot } from "../../lib/contracts";
 import { Icon } from "../../components/Icon";
+import { UsageSources } from "./UsageSources";
 
 export function SettingsPage({
   snapshot,
@@ -112,6 +113,7 @@ export function SettingsPage({
           </button>
         </div>
       </section>
+      <UsageSources snapshot={snapshot} />
       <div className="keyboard-hint">
         <kbd>Ctrl / ⌘</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>
         <span>打开主窗口</span>

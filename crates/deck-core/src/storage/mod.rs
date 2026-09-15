@@ -1,5 +1,7 @@
+mod floating;
 #[cfg(test)]
 mod tests;
+mod usage;
 mod vault;
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -38,6 +40,8 @@ impl Storage {
         let mut db = store.connect()?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "FULL")?;
+        // SQLite's table-rebuild migration requires foreign keys disabled before BEGIN.
+        db.pragma_update(None, "foreign_keys", false)?;
         let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let version: i64 = tx.pragma_query_value(None, "user_version", |row| row.get(0))?;
         match version {
@@ -48,15 +52,36 @@ impl Storage {
                     [serde_json::to_string(&Settings::default())?],
                 )?;
             }
-            1 => {}
+            1..=3 => {}
             _ => {
                 return Err(DeckError::Invalid(
                     "数据库版本比当前应用新，请使用对应版本打开",
                 ));
             }
         }
+        if version < 2 {
+            tx.execute_batch(include_str!("migration_002.sql"))?;
+            tx.execute(
+                "INSERT INTO float_settings VALUES (1, ?1, 290, 430, NULL)",
+                [serde_json::to_string(
+                    &crate::settings::floating::FloatPreferences::default(),
+                )?],
+            )?;
+        }
+        if version < 3 {
+            tx.execute_batch(include_str!("migration_003.sql"))?;
+        }
+        if tx
+            .prepare("PRAGMA foreign_key_check")?
+            .query([])?
+            .next()?
+            .is_some()
+        {
+            return Err(DeckError::Invalid("数据库迁移后的引用校验失败"));
+        }
         tx.execute("UPDATE tasks SET state = 'interrupted', finished_at = ?1, message = '上次运行中断；未自动重放' WHERE state IN ('queued', 'running', 'waiting_user', 'paused')", [crate::now()])?;
         tx.commit()?;
+        db.pragma_update(None, "foreign_keys", true)?;
         Ok(store)
     }
 
@@ -219,7 +244,7 @@ impl Storage {
         let tasks = tx.prepare("SELECT id, kind, state, created_at, finished_at, message FROM tasks ORDER BY rowid DESC LIMIT 30")?.query_map([], |row| Ok(Task { id: row.get(0)?, kind: row.get(1)?, state: row.get(2)?, created_at: row.get(3)?, finished_at: row.get(4)?, message: row.get(5)? }))?.collect::<std::result::Result<Vec<_>, _>>()?;
         tx.commit()?;
         Ok(Snapshot {
-            schema_version: 1,
+            schema_version: 3,
             providers: catalog::providers(),
             accounts,
             credentials,

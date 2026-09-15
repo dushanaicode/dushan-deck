@@ -25,6 +25,36 @@ const checks = [];
 const measurements = { launches: [], exits: [], idleProcesses: [] };
 const logs = openSync(resolve(evidence, "desktop.log"), "a");
 
+async function nativeWindow(action = "read") {
+  const probe = spawn(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-File",
+      "scripts/native-window.ps1",
+      "-DeckProcessId",
+      String(child.pid),
+      "-Action",
+      action,
+    ],
+    { cwd: root, windowsHide: true, env: process.env },
+  );
+  let output = "",
+    error = "";
+  probe.stdout.on("data", (chunk) => {
+    output += chunk;
+  });
+  probe.stderr.on("data", (chunk) => {
+    error += chunk;
+  });
+  const code = await new Promise((done, reject) => {
+    probe.on("error", reject);
+    probe.on("exit", done);
+  });
+  if (code !== 0) throw new Error(error);
+  return JSON.parse(output);
+}
+
 async function ownedProcesses() {
   const probe = spawn(
     "powershell.exe",
@@ -52,7 +82,7 @@ async function ownedProcesses() {
 
 async function start() {
   const startedAt = performance.now();
-  child = spawn(executable, ["--state-root", stateRoot], {
+  child = spawn(executable, ["--state-root", stateRoot, "--offline"], {
     cwd: root,
     windowsHide: true,
     stdio: ["ignore", logs, logs],
@@ -82,7 +112,7 @@ async function start() {
   main = browser
     .contexts()[0]
     .pages()
-    .find((page) => !page.url().includes("surface=float"));
+    .find((page) => !page.url().includes("float.html"));
   main.on("pageerror", (error) => failures.push(error.message));
   await expect(
     main.getByRole("heading", { name: /^工作台\s*\.$/, level: 1 }),
@@ -181,8 +211,57 @@ try {
   const float = browser
     .contexts()[0]
     .pages()
-    .find((page) => page.url().includes("surface=float"));
-  await expect(float.getByText("1 个账号", { exact: true })).toBeVisible();
+    .find((page) => page.url().includes("float.html"));
+  await expect(
+    float.getByText("合成测试账号 A", { exact: true }),
+  ).toBeVisible();
+  const originalWindow = await nativeWindow();
+  expect(originalWindow.decorated).toBe(false);
+  expect(originalWindow.topmost).toBe(true);
+  expect(originalWindow.alpha).toBe(209);
+  expect(originalWindow.rounded).toBe(true);
+  await float.locator("#tCfg").click();
+  await float.locator("#roundedChip").click();
+  await expect.poll(async () => (await nativeWindow()).rounded).toBe(false);
+  await float.locator("#roundedChip").click();
+  await expect.poll(async () => (await nativeWindow()).rounded).toBe(true);
+  await float.getByRole("slider", { name: "不透明度", exact: true }).focus();
+  await float.keyboard.press("Home");
+  await expect.poll(async () => (await nativeWindow()).alpha).toBe(51);
+  await float.locator("#tPin").click();
+  await expect.poll(async () => (await nativeWindow()).topmost).toBe(false);
+  await float.locator('[data-t="forest"]').click();
+  await float
+    .getByLabel("悬浮窗背景图片")
+    .setInputFiles(resolve(root, "src/features/floating/bg-default.jpg"));
+  await expect
+    .poll(async () =>
+      (await invoke(float, "get_float_state")).background?.startsWith(
+        "data:image/jpeg;base64,",
+      ),
+    )
+    .toBe(true);
+  await float.locator("#bgClear").click();
+  await expect
+    .poll(async () => (await invoke(float, "get_float_state")).background)
+    .toBe(null);
+  await float.locator("#tCfg").click();
+  const movedWindow = await nativeWindow("drag");
+  expect(movedWindow.x).toBeGreaterThan(originalWindow.x);
+  const resizedWindow = await nativeWindow("resize");
+  expect(resizedWindow.width).toBeGreaterThan(originalWindow.width);
+  await expect
+    .poll(async () => (await invoke(float, "get_float_state")).width)
+    .toBe(Math.round((resizedWindow.width * 96) / resizedWindow.dpi));
+  measurements.floatingWindow = {
+    original: originalWindow,
+    moved: movedWindow,
+    resized: resizedWindow,
+  };
+  await float.screenshot({ path: resolve(evidence, "floating-native.png") });
+  checks.push(
+    "Frameless native opacity, pin, background, physical drag and resize verified",
+  );
   const denied = await float.evaluate(() =>
     window.__TAURI_INTERNALS__.invoke("lock_vault").then(
       () => null,
@@ -204,7 +283,7 @@ try {
   expect((await invoke(main, "get_snapshot")).tasks[0].state).toBe("succeeded");
   const duplicate = spawn(
     executable,
-    ["--state-root", resolve(evidence, "second-state")],
+    ["--state-root", resolve(evidence, "second-state"), "--offline"],
     {
       cwd: root,
       windowsHide: true,
@@ -243,6 +322,13 @@ try {
   expect(restored.connections.length).toBe(1);
   expect(restored.settings.floatEnabled).toBe(true);
   expect(restored.vaultUnlocked).toBe(false);
+  const restoredFloat = await invoke(main, "get_float_state");
+  expect(restoredFloat.preferences.alpha).toBe(20);
+  expect(restoredFloat.preferences.theme).toBe("forest");
+  expect(restoredFloat.preferences.onTop).toBe(false);
+  const restoredNative = await nativeWindow();
+  expect(restoredNative.alpha).toBe(51);
+  expect(restoredNative.topmost).toBe(false);
   checks.push(
     "Restart restores accounts, connections, settings and task history; vault relocks",
   );

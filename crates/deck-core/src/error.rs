@@ -2,6 +2,8 @@ use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeckError {
+    #[error("网络客户端初始化失败")]
+    Http(#[from] reqwest::Error),
     #[error("{0}")]
     Invalid(&'static str),
     #[error("请先解锁本地凭据库")]
@@ -35,6 +37,7 @@ pub struct ErrorDto {
 impl From<DeckError> for ErrorDto {
     fn from(error: DeckError) -> Self {
         let (code, action) = match &error {
+            DeckError::Http(_) => ("network_setup", "检查系统网络环境"),
             DeckError::Invalid(_) => ("invalid_input", "检查输入后重试"),
             DeckError::VaultLocked => ("vault_locked", "解锁凭据库"),
             DeckError::VaultAuthentication => ("vault_authentication", "核对口令并保留原始数据库"),

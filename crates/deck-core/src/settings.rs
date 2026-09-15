@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+pub mod floating;
 
 use crate::{
     catalog::Provider,
@@ -23,9 +24,12 @@ impl Default for Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<()> {
-        if self.favorite_providers.len() > 2
-            || (self.favorite_providers.len() == 2
-                && self.favorite_providers[0] == self.favorite_providers[1])
+        if self.favorite_providers.len() > Provider::ALL.len()
+            || self
+                .favorite_providers
+                .iter()
+                .enumerate()
+                .any(|(index, provider)| self.favorite_providers[..index].contains(provider))
         {
             return Err(DeckError::Invalid("收藏专区不能重复"));
         }

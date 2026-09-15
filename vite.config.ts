@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   cacheDir: "Temp/tooling/vite",
   clearScreen: false,
-  optimizeDeps: { entries: ["index.html"] },
+  optimizeDeps: { entries: ["index.html", "float.html"] },
   server: {
     host: "127.0.0.1",
     port: 1420,
@@ -16,6 +16,7 @@ export default defineConfig({
       allow: [
         "src",
         "index.html",
+        "float.html",
         "node_modules",
         "Temp/tooling/frontend/node_modules",
         "Temp/tooling/vite",
@@ -31,5 +32,11 @@ export default defineConfig({
       ignored: ["**/Temp/**", "**/.docs/**", "**/src-tauri/**", "**/crates/**"],
     },
   },
-  build: { outDir: "Temp/build/frontend", emptyOutDir: false },
+  build: {
+    outDir: "Temp/build/frontend",
+    emptyOutDir: false,
+    rolldownOptions: {
+      input: { main: resolve("index.html"), floating: resolve("float.html") },
+    },
+  },
 });

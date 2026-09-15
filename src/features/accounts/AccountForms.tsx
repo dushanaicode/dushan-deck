@@ -1,6 +1,11 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import type { Provider, Snapshot } from "../../lib/contracts";
+import type {
+  Provider,
+  ProviderInfo,
+  ImportFormat,
+  Snapshot,
+} from "../../lib/contracts";
 import { api, errorMessage } from "../../lib/deck";
 import { Modal } from "../../components/Modal";
 
@@ -89,18 +94,17 @@ export function VaultForm({
 }
 
 export function ImportForm({
-  provider,
+  info,
   onDone,
   onClose,
 }: {
-  provider: Provider;
+  info: ProviderInfo;
   onDone: (message: string) => void;
   onClose: () => void;
 }) {
   const [label, setLabel] = useState("");
-  const [format, setFormat] = useState<"api_key" | "claude_code" | "codex">(
-    "api_key",
-  );
+  const provider = info.id;
+  const [format, setFormat] = useState<ImportFormat>(info.importFormats[0]);
   const [content, setContent] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -129,10 +133,7 @@ export function ImportForm({
     }
   }
   return (
-    <Modal
-      title={`导入 ${provider === "claude" ? "Claude" : "OpenAI"} 账号`}
-      onClose={onClose}
-    >
+    <Modal title={`导入 ${info.name} 账号`} onClose={onClose}>
       <form onSubmit={(event) => void submit(event)}>
         <label>
           账号名称
@@ -154,10 +155,18 @@ export function ImportForm({
               setContent("");
             }}
           >
-            <option value="api_key">API Key</option>
-            <option value={provider === "claude" ? "claude_code" : "codex"}>
-              {provider === "claude" ? "Claude Code JSON" : "Codex auth.json"}
-            </option>
+            {info.importFormats.map((format) => (
+              <option key={format} value={format}>
+                {
+                  {
+                    api_key: "API Key",
+                    claude_code: "Claude Code JSON",
+                    codex: "Codex auth.json",
+                    quota_json: "Quota 账号 JSON",
+                  }[format]
+                }
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -187,6 +196,8 @@ export function ImportForm({
         </label>
         <p className="note">
           仅导入你选择的内容。保存不代表登录态、额度或模型调用能力已验证；不同来源不会自动合并账号。
+          {format !== "api_key" &&
+            "导入的 OAuth 会话会在后台续期；客户端自动回写尚未接通，共用同一登录会话时请留意原客户端的凭据更新。"}
         </p>
         {error && (
           <p className="form-error" role="alert">
