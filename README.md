@@ -45,6 +45,8 @@ Windows 安装依赖后可用快捷命令 `dsdeck-t` 启动桌面开发版。在
 
 CMD 中运行 `dsdeck-t`。入口自动定位项目根目录，复用上面的 `dev` 流程；支持前端热更新，Rust 改动自动重新编译。首次编译需要等待，日志显示在当前终端。退出时使用应用内“退出应用”或托盘的退出菜单。
 
+Windows 已运行时再次执行会唤回主窗口，沿用现有开发服务；图标仅在缺失或源 SVG 更新后生成。若应用尚未运行且 1420 端口已被其他服务占用，启动器会提示并退出。
+
 开发入口自动将临时文件、依赖缓存、前端依赖、Rust target、前端构建输出、图标、Tauri schema 和应用状态放入项目 `Temp/`。不修改 HOME / USERPROFILE。不要直接运行未隔离的 npm 安装、cargo 或 Tauri 命令。
 
 `node_modules`、`src-tauri/gen` 只是指向 `Temp/` 的目录链接。`package-lock.json` 和 `Cargo.lock` 固定依赖；不运行依赖安装脚本。

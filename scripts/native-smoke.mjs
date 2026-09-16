@@ -281,25 +281,32 @@ try {
   expect(child.exitCode).toBe(null);
   await invoke(main, "check_storage");
   expect((await invoke(main, "get_snapshot")).tasks[0].state).toBe("succeeded");
-  const duplicate = spawn(
-    executable,
-    ["--state-root", resolve(evidence, "second-state"), "--offline"],
-    {
+  // Reproduce a running dev server: the launcher must reuse Tauri before touching this port.
+  const devPort = createServer();
+  await new Promise((done, reject) => {
+    devPort.once("error", reject);
+    devPort.listen(1420, "127.0.0.1", done);
+  });
+  try {
+    const duplicate = spawn(process.execPath, ["scripts/deck.mjs", "dev"], {
       cwd: root,
       windowsHide: true,
       stdio: ["ignore", logs, logs],
       env: process.env,
-    },
-  );
-  const duplicateCode = await new Promise((done) =>
-    duplicate.once("exit", done),
-  );
-  expect(duplicateCode).toBe(0);
+    });
+    const duplicateCode = await new Promise((done, reject) => {
+      duplicate.once("error", reject);
+      duplicate.once("exit", done);
+    });
+    expect(duplicateCode).toBe(0);
+  } finally {
+    await new Promise((done) => devPort.close(done));
+  }
   await expect
     .poll(() => invoke(main, "plugin:window|is_visible", { label: "main" }))
     .toBe(true);
   checks.push(
-    "Close hides, hidden backend continues, second instance reopens original",
+    "Close hides, hidden backend continues, repeated dev launch reopens original without starting another server",
   );
   await main.getByRole("button", { name: "设置", exact: true }).click();
   await main.getByRole("checkbox", { name: /启动时显示悬浮窗/ }).click();

@@ -1,13 +1,15 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
   realpathSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import { resolve } from "node:path";
 
 const root = process.cwd();
@@ -68,12 +70,55 @@ async function nodeTool(relative, args = []) {
   ]);
 }
 async function icons() {
+  const sourceTime = statSync(resolve(root, "src/assets/deck.svg")).mtimeMs;
+  if (
+    ["icon.ico", "icon.png"].every((name) => {
+      const output = resolve(root, "Temp/build/icons", name);
+      return existsSync(output) && statSync(output).mtimeMs >= sourceTime;
+    })
+  )
+    return;
   await nodeTool("@tauri-apps/cli/tauri.js", [
     "icon",
     "src/assets/deck.svg",
     "--output",
     "Temp/build/icons",
   ]);
+}
+
+function reuseDesktop() {
+  if (process.platform !== "win32") return false;
+  const result = spawnSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-File",
+      resolve(root, "scripts/reuse-dev.ps1"),
+      "-Executable",
+      resolve(root, "Temp/build/rust/debug/dushan-deck.exe"),
+      "-StateRoot",
+      resolve(root, "Temp/dev-state"),
+    ],
+    { cwd: root, env: process.env, stdio: "inherit", windowsHide: true },
+  );
+  if (result.error) throw result.error;
+  if (result.status === 10) return false;
+  if (result.status !== 0)
+    throw new Error(`Desktop activation exited with ${result.status}`);
+  console.log("Dushan Deck 已在运行，已唤回主窗口。");
+  return true;
+}
+
+async function devPortAvailable() {
+  const probe = createNetServer();
+  return new Promise((done, reject) => {
+    probe.once("error", (error) => {
+      if (error.code === "EADDRINUSE") done(false);
+      else reject(error);
+    });
+    probe.listen(1420, "127.0.0.1", () => probe.close(() => done(true)));
+  });
 }
 
 switch (process.argv[2]) {
@@ -133,6 +178,14 @@ switch (process.argv[2]) {
     await nodeTool("vite/bin/vite.js", ["build", "--configLoader", "runner"]);
     break;
   case "dev":
+    if (reuseDesktop()) break;
+    if (!(await devPortAvailable())) {
+      console.error(
+        "端口 1420 已被占用。若 Dushan Deck 正在启动，请稍候重试；否则请先退出占用该端口的开发服务。",
+      );
+      process.exitCode = 1;
+      break;
+    }
     await icons();
     await nodeTool("@tauri-apps/cli/tauri.js", [
       "dev",
@@ -151,7 +204,7 @@ switch (process.argv[2]) {
     ]);
     break;
   case "check":
-    if (!existsSync(resolve(root, "Temp/build/icons/icon.ico"))) await icons();
+    await icons();
     await nodeTool("typescript/bin/tsc", ["--noEmit"]);
     await nodeTool("prettier/bin/prettier.cjs", [
       "--check",
@@ -190,7 +243,7 @@ switch (process.argv[2]) {
     await run("cargo", ["fmt", "--all"]);
     break;
   case "test":
-    if (!existsSync(resolve(root, "Temp/build/icons/icon.ico"))) await icons();
+    await icons();
     await run("cargo", ["test", "--workspace", "--locked"]);
     await nodeTool("@playwright/test/cli.js", ["test"]);
     break;
